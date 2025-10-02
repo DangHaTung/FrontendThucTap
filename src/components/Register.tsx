@@ -1,4 +1,4 @@
-import React from 'react'
+
 import { useForm } from 'react-hook-form'
 import { authSchema, type IAuth } from '../Schema/auth'
 import { zodResolver } from '@hookform/resolvers/zod'
