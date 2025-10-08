@@ -2,8 +2,8 @@
 import { useForm } from 'react-hook-form'
 import { authSchema, type IAuth } from '../Schema/auth'
 import { zodResolver } from '@hookform/resolvers/zod'
-import axios from 'axios'
 import { useNavigate } from 'react-router'
+import api from '../api'
 
 
 const Register = () => {
@@ -13,7 +13,7 @@ const Register = () => {
     nav(-1)
   }
   const onSubmit = async (value: IAuth) => {
-    await axios.post("http://localhost:3000/api/register", value)
+    await api.post('/register', value)
     nav('/login')
   }
   return (

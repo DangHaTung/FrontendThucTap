@@ -9,6 +9,7 @@ import { z } from "zod";
     .regex(/[a-z]/, "Mật khẩu phải có ít nhất 1 chữ thường")
     .regex(/[A-Z]/, "Mật khẩu phải có ít nhất 1 chữ hoa")
     .regex(/[0-9]/, "Mật khẩu phải có ít nhất 1 số")
-    .regex(/[^a-zA-Z0-9]/, "Mật khẩu phải có ít nhất 1 ký tự đặc biệt"),
+    .regex(/[^a-zA-Z0-9]/, "Mật khẩu phải có ít nhất 1 ký tự đặc biệt")
+    .regex(/^\S+$/, "Mật khẩu không được có dấu cách"),
  })
  export type IAuth = z.infer<typeof authSchema>

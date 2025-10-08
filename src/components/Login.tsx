@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import axios from 'axios'
 import { useNavigate } from 'react-router'
 import { useAuth } from '../contexts/AuthContext'
+import api from '../api'
 
 
 
@@ -23,7 +24,7 @@ const Login = () => {
     setIsLoading(true)
     
     try {
-      const { data } = await axios.post("http://localhost:3000/api/login", value)
+      const { data } = await api.post('/login', value)
       // Lấy token và username từ API response
       const token = data.token
       const username = data.data.username
