@@ -11,5 +11,6 @@ import { z } from "zod";
     .regex(/[0-9]/, "Mật khẩu phải có ít nhất 1 số")
     .regex(/[^a-zA-Z0-9]/, "Mật khẩu phải có ít nhất 1 ký tự đặc biệt")
     .regex(/^\S+$/, "Mật khẩu không được có dấu cách"),
+    avatar: z.string().url("Avatar phải là một URL hợp lệ").optional(),
  })
  export type IAuth = z.infer<typeof authSchema>
