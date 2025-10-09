@@ -6,6 +6,7 @@ import axios from 'axios'
 import { useNavigate } from 'react-router'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../api'
+import toast from 'react-hot-toast'
 
 
 
@@ -25,6 +26,7 @@ const Login = () => {
     
     try {
       const { data } = await api.post('/login', value)
+      toast.success("Đăng nhập thành công")
       // Lấy token và username từ API response
       const token = data.token
       const username = data.data.username
@@ -33,10 +35,11 @@ const Login = () => {
         username: data.data.username,
         email: data.data.email
       }
+      
       login(username, token, userData)
+
       nav('/')
     } catch (error) {
-      console.error('Login failed:', error)
       if (axios.isAxiosError(error) && error.response?.data?.message) {
         setErrorMessage(error.response.data.message)
       } else {

@@ -1,9 +1,9 @@
-
 import { useForm } from 'react-hook-form'
 import { authSchema, type IAuth } from '../Schema/auth'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate } from 'react-router'
 import api from '../api'
+import toast from 'react-hot-toast'
 
 
 const Register = () => {
@@ -14,6 +14,7 @@ const Register = () => {
   }
   const onSubmit = async (value: IAuth) => {
     await api.post('/register', value)
+    toast.success('Đăng ký thành công')
     nav('/login')
   }
   return (
@@ -61,6 +62,20 @@ const Register = () => {
             />
             {errors.password && (
               <p className='text-red-500'>{errors.password.message}</p>
+            )}
+          </div>
+            <div className="mb-5">
+            <label htmlFor="price" className="block mb-2">
+              Avata
+            </label>
+            <input
+              {...register('avatar')}
+              type="avata"
+              id="avatar"
+              className={`bg-gray-50 border border-gray-300 rounded-lg block w-full p-2 hover:border-blue-500 hover:bg-zinc-100 ${errors.email ? 'border-red-500' : ''}`}
+            />
+            {errors.avatar && (
+              <p className='text-red-500'>{errors.avatar.message}</p>
             )}
           </div>
           <div className='flex justify-between'>
