@@ -5,12 +5,19 @@ export interface List {
   title: string;
   boardId: string;
   position: number;
+  color?: string;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateListRequest {
   title: string;
+  color?: string;
+}
+
+export interface UpdateListRequest {
+  title?: string;
+  color?: string;
 }
 
 export const listsApi = {
@@ -27,8 +34,14 @@ export const listsApi = {
   },
 
   // Cập nhật list
-  updateList: async (boardId: string, listId: string, data: { title: string }): Promise<List> => {
+  updateList: async (boardId: string, listId: string, data: UpdateListRequest): Promise<List> => {
     const response = await api.put(`/boards/${boardId}/lists/${listId}`, data);
+    return response.data;
+  },
+
+  // Cập nhật màu sắc list
+  updateListColor: async (boardId: string, listId: string, color: string): Promise<List> => {
+    const response = await api.put(`/boards/${boardId}/lists/${listId}`, { color });
     return response.data;
   },
 

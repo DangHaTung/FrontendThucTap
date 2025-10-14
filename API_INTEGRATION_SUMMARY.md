@@ -107,3 +107,7 @@ Component TrelloClone đã hoàn toàn tích hợp với backend và sẵn sàng
 
 Tất cả API endpoints đã được verify với backend routes và không còn "Cannot GET" errors!
 
+
+
+
+

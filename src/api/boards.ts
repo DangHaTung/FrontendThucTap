@@ -22,6 +22,16 @@ export interface BoardInvitation {
   updatedAt: string;
 }
 
+export interface InviteResponse {
+  message: string;
+  invitation: BoardInvitation;
+}
+
+export interface InvitationAcceptResponse {
+  message: string;
+  board: Board;
+}
+
 export const boardsApi = {
   // Lấy danh sách boards của user hiện tại
   getMyBoards: async (): Promise<Board[]> => {
@@ -37,6 +47,12 @@ export const boardsApi = {
 
   // Lấy board theo ID
   getBoardById: async (id: string): Promise<Board> => {
+    const response = await api.get(`/boards/${id}`);
+    return response.data;
+  },
+
+  // Lấy board theo ID (alias)
+  getBoard: async (id: string): Promise<Board> => {
     const response = await api.get(`/boards/${id}`);
     return response.data;
   },
@@ -59,7 +75,7 @@ export const boardsApi = {
   },
 
   // Mời thành viên bằng email
-  inviteMemberByEmail: async (boardId: string, email: string): Promise<Board> => {
+  inviteMemberByEmail: async (boardId: string, email: string): Promise<InviteResponse> => {
     const response = await api.post(`/boards/${boardId}/invite-by-email`, { email });
     return response.data;
   },
@@ -78,18 +94,21 @@ export const boardsApi = {
 
   // Lấy danh sách lời mời của user hiện tại
   getMyInvitations: async (): Promise<BoardInvitation[]> => {
-    const response = await api.get('/boards/invitations');
+    const response = await api.get('/invitations');
     return response.data;
   },
 
   // Chấp nhận lời mời
-  acceptInvitation: async (boardId: string, invitationId: string): Promise<void> => {
-    await api.post(`/boards/${boardId}/invitations/${invitationId}/accept`);
+  acceptInvitation: async (invitationId: string): Promise<InvitationAcceptResponse> => {
+    const response = await api.post(`/invitations/${invitationId}/accept`);
+    return response.data;
   },
 
   // Từ chối lời mời
-  rejectInvitation: async (boardId: string, invitationId: string): Promise<void> => {
-    await api.post(`/boards/${boardId}/invitations/${invitationId}/reject`);
+  rejectInvitation: async (invitationId: string): Promise<{ message: string }> => {
+    const response = await api.post(`/invitations/${invitationId}/reject`);
+    return response.data;
   },
 };
+
 
