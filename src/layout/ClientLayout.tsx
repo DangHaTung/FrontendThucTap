@@ -1,14 +1,14 @@
 
-import  { Outlet } from 'react-router'
-import Header from '../layout/Header'
+import { Outlet } from 'react-router';
+import Header from './Header';
 
 const ClientLayout = () => {
   return (
     <>
-    <Header />
-    <Outlet />
+      <Header />
+      <Outlet />
     </>
-  )
-}
+  );
+};
 
-export default ClientLayout
+export default ClientLayout;
