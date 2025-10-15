@@ -14,6 +14,8 @@ export interface CreateBoardRequest {
 }
 
 export interface BoardInvitation {
+  inviterId: any;
+  message: ReactNode;
   _id: string;
   boardId: string;
   email: string;
