@@ -1,4 +1,6 @@
-import api from './index';
+import api from './authApi';
+
+
 
 export interface Card {
   _id: string;
@@ -10,7 +12,6 @@ export interface Card {
   assignees: string[];
   labels: string[];
   dueDate: string | null;
-  color?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -20,7 +21,6 @@ export interface CreateCardRequest {
   description?: string;
   labels?: string[];
   dueDate?: string;
-  color?: string;
 }
 
 export interface UpdateCardRequest {
@@ -29,7 +29,6 @@ export interface UpdateCardRequest {
   labels?: string[];
   assignees?: string[];
   dueDate?: string;
-  color?: string;
 }
 
 export interface MoveCardRequest {
@@ -53,12 +52,6 @@ export const cardsApi = {
   // Cập nhật card
   updateCard: async (cardId: string, data: UpdateCardRequest): Promise<Card> => {
     const response = await api.put(`/cards/${cardId}`, data);
-    return response.data;
-  },
-
-  // Cập nhật màu sắc card
-  updateCardColor: async (cardId: string, color: string): Promise<Card> => {
-    const response = await api.put(`/cards/${cardId}`, { color });
     return response.data;
   },
 

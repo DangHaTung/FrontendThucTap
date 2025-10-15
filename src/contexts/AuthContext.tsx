@@ -1,91 +1,81 @@
-import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState } from "react";
 
-interface User {
-  id: string;
-  username: string;
+export interface User {
+  _id: string;
   email: string;
+  username?: string;
+  token: string;
 }
 
 interface AuthContextType {
-  isAuthenticated: boolean;
-  username: string;
   user: User | null;
-  login: (username: string, token: string, userData?: User) => void;
+  username: string;
+  userId: string;
+  isAuthenticated: boolean;
+  loading: boolean;
+  setUser: React.Dispatch<React.SetStateAction<User | null>>;
+  login: (user: User) => void; // ✅ thêm login
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Khi load trang, kiểm tra token trong localStorage
+  useEffect(() => {
+  const storedUser = localStorage.getItem("user");
+  if (storedUser) {
+    try {
+      setUser(JSON.parse(storedUser)); // ✅ userData đầy đủ {email, username, token}
+    } catch {
+      setUser(null);
+    }
+  } else {
+    setUser(null);
   }
-  return context;
+  setLoading(false);
+}, []);
+
+
+  const login = (userData: User) => {
+  setUser(userData);
+    localStorage.setItem("token", userData.token);
+
+  localStorage.setItem("user", JSON.stringify(userData));
 };
 
-interface AuthProviderProps {
-  children: ReactNode;
-}
+const logout = () => {
+  setUser(null);
+  localStorage.removeItem("user");
+    localStorage.removeItem("token");
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [username, setUsername] = useState<string>('');
-  const [user, setUser] = useState<User | null>(null);
+};
 
-  useEffect(() => {
-    // Kiểm tra token và username trong localStorage khi component mount
-    const token = localStorage.getItem('token');
-    const savedUsername = localStorage.getItem('username');
-    const savedUser = localStorage.getItem('user');
-    
-    console.log('AuthContext useEffect - token:', token);
-    console.log('AuthContext useEffect - username:', savedUsername);
-    
-    if (token && savedUsername) {
-      setIsAuthenticated(true);
-      setUsername(savedUsername);
-      if (savedUser) {
-        setUser(JSON.parse(savedUser));
-      }
-    }
-  }, []);
 
-  const login = (username: string, token: string, userData?: User) => {
-    console.log('AuthContext login - saving token:', token);
-    console.log('AuthContext login - saving username:', username);
-    
-    localStorage.setItem('token', token);
-    localStorage.setItem('username', username);
-    if (userData) {
-      localStorage.setItem('user', JSON.stringify(userData));
-      setUser(userData);
-    }
-    setIsAuthenticated(true);
-    setUsername(username);
-  };
-
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('username');
-    localStorage.removeItem('user');
-    setIsAuthenticated(false);
-    setUsername('');
-    setUser(null);
-  };
-
-  const value: AuthContextType = {
-    isAuthenticated,
-    username,
-    user,
-    login,
-    logout,
-  };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider
+      value={{
+        user,
+        username: user?.username || "",
+        userId: user?._id || "",
+        isAuthenticated: !!user,
+        loading,
+        setUser,
+        login,   // ✅ cung cấp login
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
 };
 
+export const useAuth = () => {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
+  return ctx;
+};
