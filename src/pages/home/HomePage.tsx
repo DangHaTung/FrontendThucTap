@@ -4,23 +4,23 @@ const HomePage = () => {
   const token = localStorage.getItem("token");
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-      <h1 className="text-3xl font-bold mb-4 text-indigo-600">Trang chủ</h1>
-      <p className="text-gray-600 mb-6">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-r from-pink-500 to-purple-600 r">
+      <h1 className="text-4xl font-bold mb-4 text-white">Trang chủ</h1>
+      <p className="text-black mb-6 font-bold text-2xl">
         Chào mừng bạn đến trang web của chúng tôi!
       </p>
 
       {token ? (
         <Link
           to="/dashboard"
-          className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
+          className="bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-800"
         >
           Đến bảng của bạn
         </Link>
       ) : (
         <Link
           to="/login"
-          className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
+          className="bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-800"
         >
           Đăng nhập để vào bảng của bạn
         </Link>

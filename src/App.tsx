@@ -7,6 +7,7 @@ import Register from "./pages/auth/Register";
 import HomePage from "./pages/home/HomePage";
 import Dashboard from "./pages/home/Dashboard";
 import BoardDetail from "./pages/home/BoardDetail"; 
+import Profile from "./pages/home/Profile";
 import ClientLayout from "./layouts/ClientLayout";
 
 const AppRoutes = () => {
@@ -38,6 +39,7 @@ const AppRoutes = () => {
         }
       >
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/profile" element={<Profile />} />
         <Route path="/boards/:id" element={<BoardDetail boardId={""} onBack={function (): void {
           throw new Error("Function not implemented.");
         } } />} />

@@ -49,7 +49,7 @@ const Register = () => {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100">
       <form onSubmit={handleRegister} className="bg-white p-6 rounded-xl shadow-md w-full max-w-sm">
-        <h2 className="text-2xl font-bold text-center mb-4 text-indigo-600">Đăng ký</h2>
+        <h2 className="text-2xl font-bold text-center mb-4 bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent">Đăng ký</h2>
 
         {error && <p className="text-red-500 text-sm text-center mb-3">{error}</p>}
 
@@ -92,14 +92,14 @@ const Register = () => {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 transition disabled:opacity-50"
+          className="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white py-2 rounded transition hover:from-pink-600 hover:to-purple-700 disab"
         >
           {loading ? "Đang xử lý..." : "Đăng ký"}
         </button>
 
         <p className="text-sm text-center mt-3 text-gray-600">
           Đã có tài khoản?{" "}
-          <Link to="/login" className="text-indigo-600 hover:underline">
+          <Link to="/login" className="bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent hover:underline">
             Đăng nhập
           </Link>
         </p>
