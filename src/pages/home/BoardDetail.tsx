@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Plus, X, Clock, Trash2, Check, Calendar, Tag, AlertCircle, ArrowLeft, CheckCircle2, Image, UserPlus, Mail, Send, Users } from "lucide-react";
+import { Plus, X, Clock, Trash2, Check, Calendar, Tag, AlertCircle, ArrowLeft, CheckCircle2, Image, UserPlus, Mail, Send, Users, MessageCircle, Edit3 } from "lucide-react";
 import { boardsApi, type Board } from "../../api/boards";
 import { listsApi, type List } from "../../api/lists";
 import { cardsApi, type Card } from "../../api/cards";
+import { commentsApi, type Comment } from "../../api/comments";
 import { useAuth } from "../../contexts/AuthContext";
+import socketService from "../../services/socketService";
 
 // Constants
 const LABEL_COLORS = [
@@ -167,6 +169,12 @@ export default function BoardDetail({ }: BoardDetailProps) {
   const [cardCompleted, setCardCompleted] = useState(false);
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
 
+  // Comment State
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [editingComment, setEditingComment] = useState<string | null>(null);
+  const [editingCommentText, setEditingCommentText] = useState("");
+
   const toggleAssignee = (memberId: string) => {
     setSelectedAssignees((prev) =>
       prev.includes(memberId) ? prev.filter((id) => id !== memberId) : [...prev, memberId]
@@ -192,6 +200,54 @@ export default function BoardDetail({ }: BoardDetailProps) {
     loadBoardData(id);
     setBoardBackgroundState(getBoardBackground(id));
   }, [id]);
+
+  // Socket.IO setup
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      console.log('Connecting to Socket.IO with token:', token.substring(0, 20) + '...');
+      socketService.connect(token);
+    } else {
+      console.error('No token found for Socket.IO connection');
+    }
+
+    return () => {
+      console.log('Disconnecting Socket.IO');
+      socketService.disconnect();
+    };
+  }, []);
+
+  // Socket.IO event listeners
+  useEffect(() => {
+    const handleCommentAdded = (data: any) => {
+      console.log('Socket.IO: Comment added event received:', data);
+      if (selectedCard && data.comment.cardId === selectedCard._id) {
+        setComments(prev => [...prev, data.comment]);
+      }
+    };
+
+    const handleCommentUpdated = (data: any) => {
+      console.log('Socket.IO: Comment updated event received:', data);
+      if (selectedCard && data.comment.cardId === selectedCard._id) {
+        setComments(prev => prev.map(c => c._id === data.comment._id ? data.comment : c));
+      }
+    };
+
+    const handleCommentDeleted = (data: any) => {
+      console.log('Socket.IO: Comment deleted event received:', data);
+      if (selectedCard) {
+        setComments(prev => prev.filter(c => c._id !== data.commentId));
+      }
+    };
+
+    socketService.onCommentAdded(handleCommentAdded);
+    socketService.onCommentUpdated(handleCommentUpdated);
+    socketService.onCommentDeleted(handleCommentDeleted);
+
+    return () => {
+      socketService.removeAllListeners();
+    };
+  }, [selectedCard]);
 
   // Load current user data if userId is empty
   useEffect(() => {
@@ -341,13 +397,32 @@ export default function BoardDetail({ }: BoardDetailProps) {
     }
   };
 
-  const handleOpenCardDetail = (card: ExtendedCard) => {
+  const handleOpenCardDetail = async (card: ExtendedCard) => {
     setSelectedCard(card);
     setCardDescription(card.description || "");
     setCardDeadline(card.dueDate || "");
     setSelectedColor((card.labels && card.labels[0]) || "");
     setCardCompleted(card.isCompleted || false);
     setSelectedAssignees(card.assignees || []);
+    
+    // Enable editing list title when card is opened
+    const cardList = lists.find(l => l._id === card.listId);
+    if (cardList) {
+      setEditingList(cardList._id);
+      setEditingListTitle(cardList.title);
+    }
+    
+    // Join Socket.IO room for this card
+    socketService.joinCardRoom(card._id);
+    
+    // Load comments for this card
+    try {
+      const cardComments = await commentsApi.getCommentsByCard(card._id);
+      setComments(cardComments);
+    } catch (err) {
+      console.error("Error loading comments:", err);
+      setComments([]);
+    }
   };
 
   const handleSaveCardDetails = async () => {
@@ -376,12 +451,77 @@ export default function BoardDetail({ }: BoardDetailProps) {
   };
 
   const handleCloseCardModal = () => {
+    // Leave Socket.IO room
+    if (selectedCard) {
+      socketService.leaveCardRoom(selectedCard._id);
+    }
+    
     setSelectedCard(null);
     setCardDescription("");
     setCardDeadline("");
     setSelectedColor("");
     setCardCompleted(false);
     setSelectedAssignees([]);
+    setComments([]);
+    setNewComment("");
+    setEditingComment(null);
+    setEditingCommentText("");
+  };
+
+  // Comment Operations
+  const handleAddComment = async () => {
+    if (!selectedCard || !newComment.trim()) return;
+    
+    try {
+      console.log('Creating comment:', { cardId: selectedCard._id, text: newComment });
+      const comment = await commentsApi.createComment(selectedCard._id, newComment);
+      console.log('Comment created successfully:', comment);
+      setComments([...comments, comment]);
+      setNewComment("");
+    } catch (err: any) {
+      console.error("Error adding comment:", err);
+      console.error("Error response:", err.response?.data);
+      setError(`Lỗi khi thêm bình luận: ${err.response?.data?.message || err.message}`);
+    }
+  };
+
+  const handleEditComment = async (commentId: string) => {
+    if (!editingCommentText.trim()) {
+      setEditingComment(null);
+      return;
+    }
+    
+    try {
+      const updatedComment = await commentsApi.updateComment(commentId, editingCommentText);
+      setComments(comments.map(c => c._id === commentId ? updatedComment : c));
+      setEditingComment(null);
+      setEditingCommentText("");
+    } catch (err) {
+      console.error("Error updating comment:", err);
+      setError("Lỗi khi cập nhật bình luận");
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!window.confirm("Bạn có chắc muốn xóa bình luận này?")) return;
+    
+    try {
+      await commentsApi.deleteComment(commentId);
+      setComments(comments.filter(c => c._id !== commentId));
+    } catch (err) {
+      console.error("Error deleting comment:", err);
+      setError("Lỗi khi xóa bình luận");
+    }
+  };
+
+  const startEditingComment = (comment: Comment) => {
+    setEditingComment(comment._id);
+    setEditingCommentText(comment.text);
+  };
+
+  const cancelEditingComment = () => {
+    setEditingComment(null);
+    setEditingCommentText("");
   };
 
   // Drag & Drop Operations
@@ -1178,173 +1318,289 @@ export default function BoardDetail({ }: BoardDetailProps) {
       {/* Card Detail Modal */}
       {selectedCard && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-slideUp">
-            <div className="p-6">
-              <div className="flex items-start justify-between mb-6">
-                <div className="flex-1">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-1">{selectedCard.title}</h2>
-                  <p className="text-sm text-gray-500">
-                    trong danh sách <span className="font-medium">{lists.find(l => l._id === selectedCard.listId)?.title}</span>
-                  </p>
-                  {selectedCard.createdBy && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Tạo bởi: <span className="font-medium">{selectedCard.createdBy}</span>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden animate-slideUp">
+            <div className="flex h-full">
+              {/* Left Side - Card Details */}
+              <div className="flex-1 p-6 overflow-y-auto">
+                <div className="flex items-start justify-between mb-6">
+                  <div className="flex-1">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-1">{selectedCard.title}</h2>
+                    <p className="text-sm text-gray-500">
+                      trong danh sách <span className="font-medium">{lists.find(l => l._id === selectedCard.listId)?.title}</span>
+                    </p>
+                    {selectedCard.createdBy && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Tạo bởi: <span className="font-medium">{selectedCard.createdBy}</span>
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleCloseCardModal}
+                    className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-lg transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="mb-6">
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        checked={cardCompleted}
+                        onChange={(e) => setCardCompleted(e.target.checked)}
+                        className="sr-only"
+                      />
+                      <div className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all ${
+                        cardCompleted
+                          ? 'bg-green-500 border-green-500'
+                          : 'border-gray-300 group-hover:border-green-500'
+                      }`}>
+                        {cardCompleted && <Check size={16} className="text-white" />}
+                      </div>
+                    </div>
+                    <span className={`text-base font-medium transition-colors ${
+                      cardCompleted ? 'text-green-600' : 'text-gray-700'
+                    }`}>
+                      {cardCompleted ? 'Đã hoàn thành' : 'Đánh dấu hoàn thành'}
+                    </span>
+                  </label>
+                </div>
+
+                <div className="mb-6">
+                  <label className="block text-sm font-semibold text-gray-700 mb-3">
+                    Màu nhãn
+                  </label>
+                  <div className="flex gap-2 flex-wrap">
+                    {LABEL_COLORS.map((color) => (
+                      <button
+                        key={color.value}
+                        onClick={() => setSelectedColor(color.value)}
+                        className={`w-20 h-10 rounded-lg relative transition-all ${color.bg} ${
+                          selectedColor === color.value ? "ring-2 ring-offset-2 ring-blue-500 scale-110" : "hover:scale-105"
+                        }`}
+                        title={color.name}
+                      >
+                        {selectedColor === color.value && (
+                          <Check className="absolute inset-0 m-auto text-white drop-shadow-lg" size={18} />
+                        )}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setSelectedColor("")}
+                      className="w-20 h-10 rounded-lg border-2 border-gray-300 hover:bg-gray-100 transition-colors text-xs font-medium text-gray-600"
+                    >
+                      Không
+                    </button>
+                  </div>
+                </div>
+
+                {/* Assignees Selection */}
+                <div className="mb-6">
+                  <label className="block text-sm font-semibold text-gray-700 mb-3">
+                    Người phụ trách
+                  </label>
+                  {boardMembers.length === 0 ? (
+                    <p className="text-xs text-gray-500">Chưa có thành viên nào trong bảng.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {boardMembers.map((member) => {
+                        const isSelected = selectedAssignees.includes(member._id);
+                        const initials = (member.username || member.email || 'U').charAt(0).toUpperCase();
+                        return (
+                          <button
+                            key={member._id}
+                            type="button"
+                            onClick={() => toggleAssignee(member._id)}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition shadow-sm ${
+                              isSelected ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                            }`}
+                            title={member.username}
+                          >
+                            <span className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center text-[10px] font-bold">
+                              {member.avatar ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={member.avatar} alt={member.username || ''} className="w-full h-full object-cover" />
+                              ) : (
+                                <span>{initials}</span>
+                              )}
+                            </span>
+                            <span className="text-xs font-medium">{member.username || member.email}</span>
+                            {isSelected && <Check size={14} className="opacity-90" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mb-6">
+                  <label className="block text-sm font-semibold text-gray-700 mb-3">
+                    <Calendar className="inline mr-2" size={16} />
+                    Hạn chót
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={cardDeadline}
+                    onChange={(e) => setCardDeadline(e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
+                  />
+                  {cardDeadline && new Date(cardDeadline) < new Date() && !cardCompleted && (
+                    <p className="text-red-600 text-xs mt-2 flex items-center gap-1 bg-red-50 px-3 py-2 rounded-lg font-medium">
+                      <AlertCircle size={14} />
+                      Đã quá hạn - nhiệm vụ này đã trễ hạn
+                    </p>
+                  )}
+                  {cardDeadline && (
+                    <p className="text-gray-500 text-xs mt-2">
+                      Hiển thị: {formatDateTime(cardDeadline)}
                     </p>
                   )}
                 </div>
-                <button
-                  onClick={handleCloseCardModal}
-                  className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-lg transition-colors"
-                >
-                  <X size={20} />
-                </button>
-              </div>
 
-              <div className="mb-6">
-                <label className="flex items-center gap-3 cursor-pointer group">
-                  <div className="relative">
-                    <input
-                      type="checkbox"
-                      checked={cardCompleted}
-                      onChange={(e) => setCardCompleted(e.target.checked)}
-                      className="sr-only"
-                    />
-                    <div className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all ${
-                      cardCompleted
-                        ? 'bg-green-500 border-green-500'
-                        : 'border-gray-300 group-hover:border-green-500'
-                    }`}>
-                      {cardCompleted && <Check size={16} className="text-white" />}
-                    </div>
-                  </div>
-                  <span className={`text-base font-medium transition-colors ${
-                    cardCompleted ? 'text-green-600' : 'text-gray-700'
-                  }`}>
-                    {cardCompleted ? 'Đã hoàn thành' : 'Đánh dấu hoàn thành'}
-                  </span>
-                </label>
-              </div>
+                <div className="mb-6">
+                  <label className="block text-sm font-semibold text-gray-700 mb-3">
+                    Mô tả
+                  </label>
+                  <textarea
+                    value={cardDescription}
+                    onChange={(e) => setCardDescription(e.target.value)}
+                    placeholder="Thêm mô tả chi tiết hơn..."
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 resize-none transition-all"
+                    rows={6}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {cardDescription.length} ký tự
+                  </p>
+                </div>
 
-              <div className="mb-6">
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  Màu nhãn
-                </label>
-                <div className="flex gap-2 flex-wrap">
-                  {LABEL_COLORS.map((color) => (
-                    <button
-                      key={color.value}
-                      onClick={() => setSelectedColor(color.value)}
-                      className={`w-20 h-10 rounded-lg relative transition-all ${color.bg} ${
-                        selectedColor === color.value ? "ring-2 ring-offset-2 ring-blue-500 scale-110" : "hover:scale-105"
-                      }`}
-                      title={color.name}
-                    >
-                      {selectedColor === color.value && (
-                        <Check className="absolute inset-0 m-auto text-white drop-shadow-lg" size={18} />
-                      )}
-                    </button>
-                  ))}
+                <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
                   <button
-                    onClick={() => setSelectedColor("")}
-                    className="w-20 h-10 rounded-lg border-2 border-gray-300 hover:bg-gray-100 transition-colors text-xs font-medium text-gray-600"
+                    onClick={handleCloseCardModal}
+                    className="px-5 py-2.5 text-gray-700 hover:bg-gray-100 rounded-lg font-medium transition-colors"
                   >
-                    Không
+                    Hủy
+                  </button>
+                  <button
+                    onClick={handleSaveCardDetails}
+                    className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-medium transition-all shadow-md hover:shadow-lg"
+                  >
+                    Lưu thay đổi
                   </button>
                 </div>
               </div>
 
-              {/* Assignees Selection */}
-              <div className="mb-6">
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  Người phụ trách
-                </label>
-                {boardMembers.length === 0 ? (
-                  <p className="text-xs text-gray-500">Chưa có thành viên nào trong bảng.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {boardMembers.map((member) => {
-                      const isSelected = selectedAssignees.includes(member._id);
-                      const initials = (member.username || member.email || 'U').charAt(0).toUpperCase();
-                      return (
-                        <button
-                          key={member._id}
-                          type="button"
-                          onClick={() => toggleAssignee(member._id)}
-                          className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition shadow-sm ${
-                            isSelected ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                          }`}
-                          title={member.username}
-                        >
-                          <span className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center text-[10px] font-bold">
-                            {member.avatar ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={member.avatar} alt={member.username || ''} className="w-full h-full object-cover" />
-                            ) : (
-                              <span>{initials}</span>
-                            )}
-                          </span>
-                          <span className="text-xs font-medium">{member.username || member.email}</span>
-                          {isSelected && <Check size={14} className="opacity-90" />}
-                        </button>
-                      );
-                    })}
+              {/* Right Side - Comments */}
+              <div className="w-96 border-l border-gray-200 bg-gray-50 p-6 overflow-y-auto">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <MessageCircle className="text-blue-600" size={18} />
                   </div>
-                )}
-              </div>
+                  <h3 className="text-lg font-bold text-gray-900">Nhận xét và hoạt động</h3>
+                </div>
 
-              <div className="mb-6">
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  <Calendar className="inline mr-2" size={16} />
-                  Hạn chót
-                </label>
-                <input
-                  type="datetime-local"
-                  value={cardDeadline}
-                  onChange={(e) => setCardDeadline(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
-                />
-                {cardDeadline && new Date(cardDeadline) < new Date() && !cardCompleted && (
-                  <p className="text-red-600 text-xs mt-2 flex items-center gap-1 bg-red-50 px-3 py-2 rounded-lg font-medium">
-                    <AlertCircle size={14} />
-                    Đã quá hạn - nhiệm vụ này đã trễ hạn
-                  </p>
-                )}
-                {cardDeadline && (
-                  <p className="text-gray-500 text-xs mt-2">
-                    Hiển thị: {formatDateTime(cardDeadline)}
-                  </p>
-                )}
-              </div>
+                {/* Add Comment */}
+                <div className="mb-6">
+                  <textarea
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Viết bình luận..."
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 resize-none transition-all"
+                    rows={3}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleAddComment();
+                      }
+                    }}
+                  />
+                  <div className="flex justify-end mt-2">
+                    <button
+                      onClick={handleAddComment}
+                      disabled={!newComment.trim()}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm rounded-lg font-medium transition-colors flex items-center gap-2"
+                    >
+                      <Send size={14} />
+                      Bình luận
+                    </button>
+                  </div>
+                </div>
 
-              <div className="mb-6">
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  Mô tả
-                </label>
-                <textarea
-                  value={cardDescription}
-                  onChange={(e) => setCardDescription(e.target.value)}
-                  placeholder="Thêm mô tả chi tiết hơn..."
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 resize-none transition-all"
-                  rows={6}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  {cardDescription.length} ký tự
-                </p>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-                <button
-                  onClick={handleCloseCardModal}
-                  className="px-5 py-2.5 text-gray-700 hover:bg-gray-100 rounded-lg font-medium transition-colors"
-                >
-                  Hủy
-                </button>
-                <button
-                  onClick={handleSaveCardDetails}
-                  className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-medium transition-all shadow-md hover:shadow-lg"
-                >
-                  Lưu thay đổi
-                </button>
+                {/* Comments List */}
+                <div className="space-y-4">
+                  {comments.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <MessageCircle size={32} className="mx-auto mb-2 opacity-50" />
+                      <p>Chưa có bình luận nào</p>
+                    </div>
+                  ) : (
+                    comments.map((comment) => (
+                      <div key={comment._id} className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                            {(comment.author?.username || "U").charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="font-semibold text-gray-900 text-sm">
+                                {comment.author?.username || "Người dùng"}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {formatDateTime(comment.createdAt)}
+                              </span>
+                            </div>
+                            
+                            {editingComment === comment._id ? (
+                              <div className="space-y-2">
+                                <textarea
+                                  value={editingCommentText}
+                                  onChange={(e) => setEditingCommentText(e.target.value)}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 resize-none text-sm"
+                                  rows={2}
+                                  autoFocus
+                                />
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => handleEditComment(comment._id)}
+                                    className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg font-medium transition-colors"
+                                  >
+                                    Lưu
+                                  </button>
+                                  <button
+                                    onClick={cancelEditingComment}
+                                    className="px-3 py-1 bg-gray-500 hover:bg-gray-600 text-white text-xs rounded-lg font-medium transition-colors"
+                                  >
+                                    Hủy
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div>
+                                <p className="text-gray-800 text-sm mb-2">{comment.text}</p>
+                                <div className="flex gap-3 text-xs text-gray-500">
+                                  <button
+                                    onClick={() => startEditingComment(comment)}
+                                    className="hover:text-blue-600 transition-colors flex items-center gap-1"
+                                  >
+                                    <Edit3 size={12} />
+                                    Chỉnh sửa
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteComment(comment._id)}
+                                    className="hover:text-red-600 transition-colors flex items-center gap-1"
+                                  >
+                                    <Trash2 size={12} />
+                                    Xóa
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           </div>

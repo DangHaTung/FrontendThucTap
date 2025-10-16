@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { loginSchema, type ILogin } from "../../schema/login";
+import { loginSchema, type ILogin } from "../../Schema/login";
 import { authApi } from "../../api/authApi";
 import { useAuth } from "../../contexts/AuthContext";
 import { jwtDecode } from "jwt-decode"; // ✅ import để decode token
@@ -39,11 +39,13 @@ const Login = () => {
         username: decoded.username,
         email: decoded.email,
         token: data.token,
-      };
+        _id: decoded.id || decoded._id || "",
+        avatar: undefined as any,
+      } as any;
 
       // 3️⃣ Lưu vào localStorage và context
       localStorage.setItem("user", JSON.stringify(userData));
-      login(userData);
+      await login(userData);
 
       // 4️⃣ Chuyển sang dashboard
       navigate("/dashboard");
@@ -57,7 +59,7 @@ const Login = () => {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100">
       <form onSubmit={handleLogin} className="bg-white p-6 rounded-xl shadow-md w-full max-w-sm">
-        <h2 className="text-2xl font-bold text-center mb-4 text-indigo-600">Đăng nhập</h2>
+        <h2 className="text-2xl font-bold text-center mb-4 bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent">Đăng nhập</h2>
 
         {error && <p className="text-red-500 text-sm text-center mb-3">{error}</p>}
 
@@ -82,14 +84,14 @@ const Login = () => {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 transition disabled:opacity-50"
+          className="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white py-2 rounded transition hover:from-pink-600 hover:to-purple-700 disabled:opacity-50"
         >
           {loading ? "Đang đăng nhập..." : "Đăng nhập"}
         </button>
 
         <p className="text-sm text-center mt-3 text-gray-600">
           Chưa có tài khoản?{" "}
-          <Link to="/register" className="text-indigo-600 hover:underline">
+          <Link to="/register" className="bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent hover:underline">
             Đăng ký
           </Link>
         </p>

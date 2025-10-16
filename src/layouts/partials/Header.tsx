@@ -5,7 +5,7 @@ import { Bell, Check, X, User, LogOut, LayoutDashboard, Search, TrendingUp } fro
 import { boardsApi, type BoardInvitation, type Board } from '../../api/boards';
 
 const Header = () => {
-  const { isAuthenticated, username, logout } = useAuth();
+  const { isAuthenticated, username, logout, user } = useAuth();
   const navigate = useNavigate();
   
   const [invitations, setInvitations] = useState<BoardInvitation[]>([]);
@@ -313,12 +313,17 @@ const Header = () => {
                     onClick={() => setShowUserMenu(!showUserMenu)}
                     className="flex items-center space-x-2.5 px-3 py-2 rounded-xl hover:bg-gray-100 transition-all group"
                   >
-                    <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-sm group-hover:shadow-md transition-all">
-                      <User size={16} className="text-white" strokeWidth={2.5} />
+                    <div className="w-8 h-8 rounded-lg overflow-hidden shadow-sm group-hover:shadow-md transition-all bg-gray-200 flex items-center justify-center">
+                      {user?.avatar ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={user.avatar} alt={username} className="w-full h-full object-cover" />
+                      ) : (
+                        <User size={16} className="text-white" strokeWidth={2.5} />
+                      )}
                     </div>
-                    <span className="text-sm font-semibold text-gray-700 group-hover:text-gray-900">
+                    <button onClick={() => navigate('/profile')} className="text-sm font-semibold text-gray-700 group-hover:text-gray-900 hover:underline">
                       {username}
-                    </span>
+                    </button>
                   </button>
 
                   {/* User Dropdown */}
@@ -326,8 +331,12 @@ const Header = () => {
                     <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                       <div className="px-4 py-4 border-b border-gray-200 bg-gradient-to-br from-gray-50 to-blue-50">
                         <div className="flex items-center space-x-3">
-                          <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
-                            <User size={20} className="text-white" strokeWidth={2.5} />
+                          <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-200 flex items-center justify-center shadow-md">
+                            {user?.avatar ? (
+                              <img src={user.avatar} alt={username} className="w-full h-full object-cover" />
+                            ) : (
+                              <User size={20} className="text-white" strokeWidth={2.5} />
+                            )}
                           </div>
                           <div className="flex-1">
                             <p className="text-xs text-gray-500 mb-0.5">Xin chào 👋</p>
