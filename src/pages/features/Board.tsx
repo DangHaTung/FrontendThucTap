@@ -133,7 +133,7 @@ const getDeadlineStatus = (deadline?: string, isCompleted?: boolean) => {
   };
 };
 
-export default function BoardDetail({ }: BoardDetailProps) {
+export default function Board({ }: BoardDetailProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { username, userId, user } = useAuth();

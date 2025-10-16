@@ -23,9 +23,13 @@ const BACKGROUND_IMAGES = [
   "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=800&q=80",
 ];
 
+interface BoardBackground {
+  type: "color" | "image";
+  value: string;
+}
+
 interface ExtendedBoard extends Board {
-  backgroundColor?: string;
-  backgroundImage?: string;
+  background?: BoardBackground;
 }
 
 const Dashboard: React.FC = () => {
@@ -51,23 +55,16 @@ const Dashboard: React.FC = () => {
       setError(null);
       const data = await boardsApi.getMyBoards();
       
-      const boardsWithBackground = data.map((board) => {
-        const savedBg = localStorage.getItem(`board-bg-${board._id}`);
-        if (savedBg) {
-          try {
-            const bg = JSON.parse(savedBg);
-            if (typeof bg === 'string') {
-              return { ...board, backgroundImage: bg };
-            }
-            return { ...board, ...bg };
-          } catch {
-            return { ...board, backgroundImage: savedBg };
-          }
+      // Giữ boards với background mặc định (không dùng localStorage)
+      const boardsWithDefaults = data.map((board) => ({
+        ...board,
+        background: {
+          type: "color" as const,
+          value: BACKGROUND_COLORS[0].value
         }
-        return board;
-      });
+      }));
       
-      setBoards(boardsWithBackground);
+      setBoards(boardsWithDefaults);
     } catch (err: any) {
       setError(err.message || "Không thể tải danh sách bảng");
     } finally {
@@ -84,13 +81,12 @@ const Dashboard: React.FC = () => {
     try {
       const newBoard = await boardsApi.createBoard({ title: newBoardTitle });
       
-      const backgroundData = {
-        backgroundColor: backgroundType === "color" ? selectedColor : undefined,
-        backgroundImage: backgroundType === "image" ? selectedImage : undefined,
+      const background: BoardBackground = {
+        type: backgroundType,
+        value: backgroundType === "color" ? selectedColor : selectedImage,
       };
-      localStorage.setItem(`board-bg-${newBoard._id}`, JSON.stringify(backgroundData));
       
-      setBoards([...boards, { ...newBoard, ...backgroundData }]);
+      setBoards([...boards, { ...newBoard, background }]);
       
       resetModalState();
       setShowCreateModal(false);
@@ -116,19 +112,26 @@ const Dashboard: React.FC = () => {
     try {
       await boardsApi.deleteBoard(boardId);
       setBoards(boards.filter((b) => b._id !== boardId));
-      localStorage.removeItem(`board-bg-${boardId}`);
     } catch (err) {
       alert("Không thể xóa bảng");
     }
   };
 
   const handleOpenBoard = (board: ExtendedBoard) => {
-    if (board.backgroundImage) {
-      localStorage.setItem(`board-bg-${board._id}`, board.backgroundImage);
-    } else if (board.backgroundColor) {
-      localStorage.setItem(`board-bg-${board._id}`, BACKGROUND_IMAGES[0]);
-    }
     navigate(`/boards/${board._id}`);
+  };
+
+  const getBoardStyle = (board: ExtendedBoard) => {
+    if (board.background?.type === "image") {
+      return {
+        backgroundImage: `url(${board.background.value})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      };
+    }
+    return {
+      background: board.background?.value || BACKGROUND_COLORS[0].value,
+    };
   };
 
   return (
@@ -213,13 +216,7 @@ const Dashboard: React.FC = () => {
                 key={board._id}
                 onClick={() => handleOpenBoard(board)}
                 className="group relative h-40 rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-2xl shadow-lg"
-                style={{
-                  background: board.backgroundImage
-                    ? `url(${board.backgroundImage})`
-                    : board.backgroundColor || BACKGROUND_COLORS[0].value,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                }}
+                style={getBoardStyle(board)}
               >
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent group-hover:from-black/90 transition-all"></div>
                 

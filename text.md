@@ -1,23 +1,12 @@
-// App.tsx (hoặc nơi bạn khai báo routes)
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import PrivateRoute from "./routes/PrivateRoute";
 
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
-
 import HomePage from "./pages/home/HomePage";
-
-// ===== Boards feature views =====
-import Stats from "./pages/features/Stats";
-import Board from "./pages/features/Board";
-import Table from "./pages/features/Table";
-import Calendar from "./pages/features/Calendar";
-
-// ===== Board container (load board/lists/cards, NavLink, <Outlet/>) =====
-// ĐẢM BẢO file này tồn tại. Đổi đường dẫn nếu bạn đặt ở nơi khác.
 import Dashboard from "./pages/home/Dashboard";
-
+import BoardDetail from "./pages/home/BoardDetail"; 
 import ClientLayout from "./layouts/ClientLayout";
 
 const AppRoutes = () => {
@@ -27,8 +16,10 @@ const AppRoutes = () => {
 
   return (
     <Routes>
-      {/* Công khai */}
+      {/* 🔹 Trang chủ (ai cũng vào được) */}
       <Route path="/" element={<HomePage />} />
+
+      {/* 🔹 Login/Register (ẩn nếu đã đăng nhập) */}
       <Route
         path="/login"
         element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />}
@@ -38,6 +29,7 @@ const AppRoutes = () => {
         element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Register />}
       />
 
+      {/* 🔹 Các trang cần đăng nhập */}
       <Route
         element={
           <PrivateRoute>
@@ -45,18 +37,13 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       >
-        {/* Dashboard */}
         <Route path="/dashboard" element={<Dashboard />} />
-
-        {/* Board */}
-        <Route path="/boards/:id" element={<Board />}>
-          <Route path="table" element={<Table />} />
-          <Route path="calendar" element={<Calendar />} />
-          <Route path="stats" element={<Stats />} />
-        </Route>
+        <Route path="/boards/:id" element={<BoardDetail boardId={""} onBack={function (): void {
+          throw new Error("Function not implemented.");
+        } } />} />
       </Route>
 
-      {/* 404 -> quay trang chủ */}
+      {/* 🔹 Route không tồn tại → quay về trang chủ */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
