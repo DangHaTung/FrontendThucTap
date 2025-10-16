@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { authApi } from "../api/authApi";
 
 export interface User {
   _id: string;
   email: string;
   username?: string;
   token: string;
+  avatar?: string;
 }
 
 interface AuthContextType {
@@ -26,26 +28,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Khi load trang, kiểm tra token trong localStorage
   useEffect(() => {
-  const storedUser = localStorage.getItem("user");
-  if (storedUser) {
-    try {
-      setUser(JSON.parse(storedUser)); // ✅ userData đầy đủ {email, username, token}
-    } catch {
-      setUser(null);
-    }
-  } else {
-    setUser(null);
-  }
-  setLoading(false);
-}, []);
+    const init = async () => {
+      const storedUser = localStorage.getItem("user");
+      const token = localStorage.getItem("token");
+      if (storedUser) {
+        try {
+          const parsed = JSON.parse(storedUser);
+          setUser(parsed);
+          // nếu thiếu avatar hoặc _id, cố gắng gọi /me để đồng bộ
+          if (token && (!parsed._id || !parsed.avatar)) {
+            try {
+              const me = await authApi.me();
+              const merged = { ...parsed, _id: me._id || parsed._id, username: me.username || parsed.username, email: me.email || parsed.email, avatar: me.avatar };
+              setUser(merged);
+              localStorage.setItem("user", JSON.stringify(merged));
+            } catch {}
+          }
+        } catch {
+          setUser(null);
+        }
+      } else if (token) {
+        // có token nhưng chưa có user -> cố gắng lấy /me
+        try {
+          const me = await authApi.me();
+          const hydrated: User = { _id: me._id, email: me.email, username: me.username, avatar: me.avatar, token };
+          setUser(hydrated);
+          localStorage.setItem("user", JSON.stringify(hydrated));
+        } catch {
+          setUser(null);
+        }
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    };
+    init();
+  }, []);
 
 
-  const login = (userData: User) => {
-  setUser(userData);
+  const login = async (userData: User) => {
+    setUser(userData);
     localStorage.setItem("token", userData.token);
-
-  localStorage.setItem("user", JSON.stringify(userData));
-};
+    localStorage.setItem("user", JSON.stringify(userData));
+    // đồng bộ avatar và id từ /me nếu có
+    try {
+      const me = await authApi.me();
+      const merged = { ...userData, _id: me._id || userData._id, username: me.username || userData.username, email: me.email || userData.email, avatar: me.avatar };
+      setUser(merged);
+      localStorage.setItem("user", JSON.stringify(merged));
+    } catch {}
+  };
 
 const logout = () => {
   setUser(null);

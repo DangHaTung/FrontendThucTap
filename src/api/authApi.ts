@@ -37,6 +37,11 @@ export const authApi = {
     const { data } = await api.get("/me");
     return data;
   },
+
+  updateMe: async (payload: { username?: string; avatar?: string; password?: string; confirmPassword?: string }) => {
+    const { data } = await api.put("/me", payload);
+    return data;
+  }
 };
 
 export default api;
