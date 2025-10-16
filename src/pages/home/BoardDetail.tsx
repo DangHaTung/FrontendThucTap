@@ -165,6 +165,13 @@ export default function BoardDetail({ }: BoardDetailProps) {
   const [cardDeadline, setCardDeadline] = useState("");
   const [selectedColor, setSelectedColor] = useState("");
   const [cardCompleted, setCardCompleted] = useState(false);
+  const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
+
+  const toggleAssignee = (memberId: string) => {
+    setSelectedAssignees((prev) =>
+      prev.includes(memberId) ? prev.filter((id) => id !== memberId) : [...prev, memberId]
+    );
+  };
   
   // Drag & Drop State
   const [draggedCard, setDraggedCard] = useState<ExtendedCard | null>(null);
@@ -340,6 +347,7 @@ export default function BoardDetail({ }: BoardDetailProps) {
     setCardDeadline(card.dueDate || "");
     setSelectedColor((card.labels && card.labels[0]) || "");
     setCardCompleted(card.isCompleted || false);
+    setSelectedAssignees(card.assignees || []);
   };
 
   const handleSaveCardDetails = async () => {
@@ -350,6 +358,7 @@ export default function BoardDetail({ }: BoardDetailProps) {
         description: cardDescription,
         dueDate: cardDeadline || undefined,
         labels: selectedColor ? [selectedColor] : [],
+        assignees: selectedAssignees,
       });
       
       setCardStatus(selectedCard._id, cardCompleted);
@@ -372,6 +381,7 @@ export default function BoardDetail({ }: BoardDetailProps) {
     setCardDeadline("");
     setSelectedColor("");
     setCardCompleted(false);
+    setSelectedAssignees([]);
   };
 
   // Drag & Drop Operations
@@ -756,6 +766,30 @@ export default function BoardDetail({ }: BoardDetailProps) {
                                 {deadlineStatus.icon}
                                 {card.dueDate && formatDateTime(card.dueDate)}
                               </span>
+                            )}
+                            {/* Assignee avatars */}
+                            {card.assignees && card.assignees.length > 0 && (
+                              <div className="ml-auto flex -space-x-2">
+                                {card.assignees.slice(0, 3).map((uid) => {
+                                  const member = boardMembers.find((m) => m._id === uid);
+                                  const initials = (member?.username || member?.email || 'U').charAt(0).toUpperCase();
+                                  return (
+                                    <div key={uid} className="w-6 h-6 rounded-full ring-2 ring-white overflow-hidden bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-700">
+                                      {member?.avatar ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img src={member.avatar} alt={member.username || ''} className="w-full h-full object-cover" />
+                                      ) : (
+                                        <span>{initials}</span>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                                {card.assignees.length > 3 && (
+                                  <div className="w-6 h-6 rounded-full ring-2 ring-white bg-gray-300 text-[10px] font-semibold flex items-center justify-center text-gray-700">
+                                    +{card.assignees.length - 3}
+                                  </div>
+                                )}
+                              </div>
                             )}
                           </div>
 
@@ -1217,6 +1251,45 @@ export default function BoardDetail({ }: BoardDetailProps) {
                     Không
                   </button>
                 </div>
+              </div>
+
+              {/* Assignees Selection */}
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                  Người phụ trách
+                </label>
+                {boardMembers.length === 0 ? (
+                  <p className="text-xs text-gray-500">Chưa có thành viên nào trong bảng.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {boardMembers.map((member) => {
+                      const isSelected = selectedAssignees.includes(member._id);
+                      const initials = (member.username || member.email || 'U').charAt(0).toUpperCase();
+                      return (
+                        <button
+                          key={member._id}
+                          type="button"
+                          onClick={() => toggleAssignee(member._id)}
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition shadow-sm ${
+                            isSelected ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                          }`}
+                          title={member.username}
+                        >
+                          <span className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center text-[10px] font-bold">
+                            {member.avatar ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={member.avatar} alt={member.username || ''} className="w-full h-full object-cover" />
+                            ) : (
+                              <span>{initials}</span>
+                            )}
+                          </span>
+                          <span className="text-xs font-medium">{member.username || member.email}</span>
+                          {isSelected && <Check size={14} className="opacity-90" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="mb-6">
